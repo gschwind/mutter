@@ -1410,7 +1410,7 @@ meta_screen_update_tile_preview_timeout (gpointer data)
 
   if (window)
     {
-      switch (window->tile_mode)
+      switch (window->preview_tile_mode)
         {
           case META_TILE_LEFT:
           case META_TILE_RIGHT:
@@ -1435,7 +1435,11 @@ meta_screen_update_tile_preview_timeout (gpointer data)
       int monitor;
 
       monitor = meta_window_get_current_tile_monitor_number (window);
-      meta_window_get_current_tile_area (window, &tile_rect);
+      meta_window_get_tile_area_for_mode (window,
+                                          window->preview_tile_mode,
+                                          window->tile_mode,
+                                          monitor,
+                                          &tile_rect);
       meta_compositor_show_tile_preview (screen->display->compositor,
                                          window, &tile_rect, monitor);
     }
@@ -1475,10 +1479,15 @@ meta_screen_update_tile_preview (MetaScreen *screen,
 void
 meta_screen_hide_tile_preview (MetaScreen *screen)
 {
+  MetaWindow *window = screen->display->grab_window;
+
   if (screen->tile_preview_timeout_id > 0)
     g_source_remove (screen->tile_preview_timeout_id);
 
   meta_compositor_hide_tile_preview (screen->display->compositor);
+
+  if (window)
+    window->preview_tile_mode = META_TILE_NONE;
 }
 
 MetaWindow*

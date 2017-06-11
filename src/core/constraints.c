@@ -943,7 +943,11 @@ constrain_maximization (MetaWindow         *window,
   /* Calculate target_size = maximized size of (window + frame) */
   if (META_WINDOW_TILED_MAXIMIZED (window))
     {
-      meta_window_get_current_tile_area (window, &target_size);
+      meta_window_get_tile_area_for_mode (window,
+                                          META_TILE_MAXIMIZED,
+                                          window->tile_mode,
+                                          window->monitor->number,
+                                          &target_size);
     }
   else if (META_WINDOW_MAXIMIZED (window))
     {
@@ -1030,7 +1034,11 @@ constrain_tiling (MetaWindow         *window,
   /* Calculate target_size - as the tile previews need this as well, we
    * use an external function for the actual calculation
    */
-  meta_window_get_current_tile_area (window, &target_size);
+  meta_window_get_tile_area_for_mode (window,
+                                      window->tile_mode,
+                                      window->tile_mode,
+                                      window->tile_monitor_number,
+                                      &target_size);
 
   /* Check min size constraints; max size constraints are ignored as for
    * maximized windows.
@@ -1051,8 +1059,6 @@ constrain_tiling (MetaWindow         *window,
     return constraint_already_satisfied;
 
   /*** Enforce constraint ***/
-  info->current.x      = target_size.x;
-  info->current.width  = target_size.width;
   info->current.y      = target_size.y;
   info->current.height = target_size.height;
 

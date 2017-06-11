@@ -207,6 +207,12 @@ struct _MetaWindow
    * that to toggle between normal/tiled or maximized/tiled states. */
   guint saved_maximize : 1;
   int tile_monitor_number;
+
+  /* Keep track of the previous tile mode so when changing between left and
+   * right tiles we can resize the window with the complementary width */
+  guint previous_tile_mode : 2;
+  guint preview_tile_mode : 2;
+
   int preferred_output_winsys_id;
 
   /* Whether we're shaded */
@@ -559,12 +565,20 @@ struct _MetaWindowClass
 #define META_WINDOW_TILED_MAXIMIZED(w)(META_WINDOW_MAXIMIZED(w) && \
                                        (w)->tile_mode == META_TILE_MAXIMIZED)
 #define META_WINDOW_ALLOWS_MOVE(w)     ((w)->has_move_func && !(w)->fullscreen)
-#define META_WINDOW_ALLOWS_RESIZE_EXCEPT_HINTS(w)   ((w)->has_resize_func && !META_WINDOW_MAXIMIZED (w) && !META_WINDOW_TILED_SIDE_BY_SIDE(w) && !(w)->fullscreen && !(w)->shaded)
+#define META_WINDOW_ALLOWS_RESIZE_EXCEPT_HINTS(w)   ((w)->has_resize_func && !META_WINDOW_MAXIMIZED (w) && !(w)->fullscreen && !(w)->shaded)
 #define META_WINDOW_ALLOWS_RESIZE(w)   (META_WINDOW_ALLOWS_RESIZE_EXCEPT_HINTS (w) &&                \
                                         (((w)->size_hints.min_width < (w)->size_hints.max_width) ||  \
                                          ((w)->size_hints.min_height < (w)->size_hints.max_height)))
 #define META_WINDOW_ALLOWS_HORIZONTAL_RESIZE(w) (META_WINDOW_ALLOWS_RESIZE_EXCEPT_HINTS (w) && (w)->size_hints.min_width < (w)->size_hints.max_width)
 #define META_WINDOW_ALLOWS_VERTICAL_RESIZE(w)   (META_WINDOW_ALLOWS_RESIZE_EXCEPT_HINTS (w) && (w)->size_hints.min_height < (w)->size_hints.max_height)
+#define META_WINDOW_TILED_LEFT_RESIZING(w) \
+  ((w)->tile_mode == META_TILE_LEFT && \
+   ((w)->display->grab_op == META_GRAB_OP_RESIZING_E || \
+    (w)->display->grab_op == META_GRAB_OP_KEYBOARD_RESIZING_E))
+#define META_WINDOW_TILED_RIGHT_RESIZING(w) \
+  ((w)->tile_mode == META_TILE_RIGHT && \
+   ((w)->display->grab_op == META_GRAB_OP_RESIZING_W || \
+    (w)->display->grab_op == META_GRAB_OP_KEYBOARD_RESIZING_W))
 
 MetaWindow * _meta_window_shared_new       (MetaDisplay         *display,
                                             MetaScreen          *screen,
@@ -579,7 +593,8 @@ void        meta_window_unmanage           (MetaWindow  *window,
                                             guint32      timestamp);
 void        meta_window_queue              (MetaWindow  *window,
                                             guint queuebits);
-void        meta_window_tile               (MetaWindow        *window);
+void        meta_window_tile               (MetaWindow        *window,
+                                            MetaTileMode       mode);
 void        meta_window_maximize_internal  (MetaWindow        *window,
                                             MetaMaximizeFlags  directions,
                                             MetaRectangle     *saved_rect);
@@ -648,7 +663,10 @@ void meta_window_get_work_area_for_logical_monitor (MetaWindow         *window,
                                                     MetaRectangle      *area);
 
 int meta_window_get_current_tile_monitor_number (MetaWindow *window);
-void meta_window_get_current_tile_area         (MetaWindow    *window,
+void meta_window_get_tile_area_for_mode        (MetaWindow    *window,
+                                                MetaTileMode   mode,
+                                                MetaTileMode   previous_mode,
+                                                guint          monitor_number,
                                                 MetaRectangle *tile_area);
 
 
