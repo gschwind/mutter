@@ -709,7 +709,9 @@ void meta_window_on_all_workspaces_changed (MetaWindow *window);
 gboolean meta_window_should_attach_to_parent (MetaWindow *window);
 gboolean meta_window_can_tile_side_by_side   (MetaWindow *window);
 
-void meta_window_compute_tile_match (MetaWindow *window);
+MetaWindow* meta_window_compute_tile_match (MetaWindow   *window,
+                                            MetaTileMode  current_mode,
+                                            gint          target_monitor);
 
 gboolean meta_window_updates_are_frozen (MetaWindow *window);
 

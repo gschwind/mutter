@@ -267,7 +267,11 @@ meta_stack_update_window_tile_matches (MetaStack     *stack,
   tmp = windows;
   while (tmp)
     {
-      meta_window_compute_tile_match ((MetaWindow *) tmp->data);
+      MetaWindow *window = tmp->data;
+
+      window->tile_match = meta_window_compute_tile_match (window,
+                                                           window->tile_mode,
+                                                           window->monitor->number);
       tmp = tmp->next;
     }
 

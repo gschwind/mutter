@@ -2900,7 +2900,13 @@ meta_window_calculate_area_for_tile_mode (MetaWindow    *window,
                                           MetaRectangle *rect)
 {
   MetaRectangle monitor_area;
+  MetaWindow *tile_match;
   gboolean was_tiled;
+
+  /* When tiling a window, the new matching tile window is not yet synchronized,
+   * so we must do that now manually. It is not necessary to recompute all windows'
+   * tile matches, just the current one */
+  tile_match = meta_window_compute_tile_match (window, mode, monitor_number);
 
   meta_window_get_work_area_for_monitor (window, monitor_number, &monitor_area);
 
@@ -2910,17 +2916,24 @@ meta_window_calculate_area_for_tile_mode (MetaWindow    *window,
 
   was_tiled = previous_mode == META_TILE_LEFT || previous_mode == META_TILE_RIGHT;
 
-  if (mode == META_TILE_MAXIMIZED)
-    /* When maximized, cover the entire width */
-    rect->width = monitor_area.width;
-  else if (mode == previous_mode)
-    /* When retrieving the size of the current tile mode, just use the current size */
-    rect->width = window->rect.width;
-  else if (was_tiled && (mode == META_TILE_LEFT || mode == META_TILE_RIGHT))
-    rect->width = monitor_area.width - window->rect.width;
+  if (tile_match)
+    {
+      rect->width = monitor_area.width - tile_match->rect.width;
+    }
   else
-    /* Assume half of the work area of the current monitor */
-    rect->width = monitor_area.width / 2;
+    {
+      if (mode == META_TILE_MAXIMIZED)
+        /* When maximized, cover the entire width */
+        rect->width = monitor_area.width;
+      else if (mode == previous_mode)
+        /* When retrieving the size of the current tile mode, just use the current size */
+        rect->width = window->rect.width;
+      else if (was_tiled && (mode == META_TILE_LEFT || mode == META_TILE_RIGHT))
+        rect->width = monitor_area.width - window->rect.width;
+      else
+        /* Assume half of the work area of the current monitor */
+        rect->width = monitor_area.width / 2;
+    }
 
   /* Update the horizontal position */
   if (mode == META_TILE_RIGHT)
@@ -2969,6 +2982,8 @@ meta_window_tile (MetaWindow   *window,
                                             window->tile_mode,
                                             monitor_number,
                                             &new_rect);
+
+  window->tile_match = meta_window_compute_tile_match (window, mode, monitor_number);
 
   /* Track the previous mode */
   window->previous_tile_mode = window->tile_mode;
@@ -5925,6 +5940,56 @@ update_resize_timeout (gpointer data)
   return FALSE;
 }
 
+static inline gint
+opposite_gravity (guint gravity)
+{
+  return StaticGravity - gravity;
+}
+
+static void
+resize_tile_match (MetaWindow *window,
+                   int         gravity,
+                   int        *out_new_w)
+{
+  MetaRectangle work_area;
+  MetaWindow *tile_match;
+  int new_w;
+
+  if (!META_WINDOW_TILED_SIDE_BY_SIDE (window) || !window->tile_match)
+    return;
+
+  new_w = *out_new_w;
+  tile_match = window->tile_match;
+
+  /* Make sure the resize does not break minimum sizes */
+  new_w = MAX (new_w, window->size_hints.min_width);
+
+  meta_window_get_work_area_for_monitor (window, window->tile_monitor_number, &work_area);
+
+  if (tile_match)
+    {
+      guint tile_width;
+
+      /* If there's a tile match window, we have to make sure we're not resizing
+       * the tile match below its min width */
+      if (work_area.width - new_w < tile_match->size_hints.min_width)
+        new_w = work_area.width - tile_match->size_hints.min_width;
+
+      tile_width = work_area.width - new_w;
+
+      /* The tile match window's new width is stored in tile_rect.width directly */
+      meta_window_resize_frame_with_gravity (window->tile_match,
+                                             TRUE,
+                                             tile_width,
+                                             work_area.height,
+                                             opposite_gravity (gravity));
+    }
+
+  /* We can potentially change the new width, so make sure update_resize() always
+   * has the most recent value */
+  *out_new_w = new_w;
+}
+
 static void
 update_resize (MetaWindow *window,
                gboolean    snap,
@@ -6049,6 +6114,10 @@ update_resize (MetaWindow *window,
                                           update_resize_timeout,
                                           snap,
                                           FALSE);
+
+  /* If the window has a tile match, we have to respect the match's minimum
+   * width. */
+  resize_tile_match (window, gravity, &new_w);
 
   meta_window_resize_frame_with_gravity (window, TRUE, new_w, new_h, gravity);
 
@@ -7460,8 +7529,10 @@ meta_window_get_tile_match (MetaWindow *window)
   return window->tile_match;
 }
 
-void
-meta_window_compute_tile_match (MetaWindow *window)
+MetaWindow *
+meta_window_compute_tile_match (MetaWindow   *window,
+                                MetaTileMode  current_mode,
+                                gint          target_monitor)
 {
   MetaWindow *match;
   MetaStack *stack;
@@ -7470,14 +7541,14 @@ meta_window_compute_tile_match (MetaWindow *window)
   window->tile_match = NULL;
 
   if (window->shaded || window->minimized)
-    return;
+    return NULL;
 
-  if (META_WINDOW_TILED_LEFT (window))
+  if (current_mode == META_TILE_LEFT)
     match_tile_mode = META_TILE_RIGHT;
-  else if (META_WINDOW_TILED_RIGHT (window))
+  else if (current_mode == META_TILE_RIGHT)
     match_tile_mode = META_TILE_LEFT;
   else
-    return;
+    return NULL;
 
   stack = window->screen->stack;
 
@@ -7488,7 +7559,7 @@ meta_window_compute_tile_match (MetaWindow *window)
       if (!match->shaded &&
           !match->minimized &&
           match->tile_mode == match_tile_mode &&
-          match->monitor == window->monitor &&
+          match->monitor->number == target_monitor &&
           meta_window_get_workspace (match) == meta_window_get_workspace (window))
         break;
     }
@@ -7528,11 +7599,11 @@ meta_window_compute_tile_match (MetaWindow *window)
 
           if (meta_rectangle_overlap (&above_rect, &bottommost_rect) &&
               meta_rectangle_overlap (&above_rect, &topmost_rect))
-            return;
+            return NULL;
         }
-
-      window->tile_match = match;
     }
+
+  return match;
 }
 
 void
