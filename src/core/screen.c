@@ -1439,6 +1439,7 @@ meta_screen_update_tile_preview_timeout (gpointer data)
                                           window->preview_tile_mode,
                                           window->tile_mode,
                                           monitor,
+                                          FALSE,
                                           &tile_rect);
       meta_compositor_show_tile_preview (screen->display->compositor,
                                          window, &tile_rect, monitor);

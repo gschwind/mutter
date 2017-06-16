@@ -2897,6 +2897,7 @@ meta_window_calculate_area_for_tile_mode (MetaWindow    *window,
                                           MetaTileMode   mode,
                                           MetaTileMode   previous_mode,
                                           gint           monitor_number,
+                                          gboolean       consider_edges,
                                           MetaRectangle *rect)
 {
   MetaRectangle monitor_area;
@@ -2906,7 +2907,7 @@ meta_window_calculate_area_for_tile_mode (MetaWindow    *window,
   /* When tiling a window, the new matching tile window is not yet synchronized,
    * so we must do that now manually. It is not necessary to recompute all windows'
    * tile matches, just the current one */
-  tile_match = meta_window_compute_tile_match (window, mode, monitor_number);
+  tile_match = meta_window_compute_tile_match (window, mode, monitor_number, consider_edges);
 
   meta_window_get_work_area_for_monitor (window, monitor_number, &monitor_area);
 
@@ -2981,9 +2982,10 @@ meta_window_tile (MetaWindow   *window,
                                             mode,
                                             window->tile_mode,
                                             monitor_number,
+                                            FALSE,
                                             &new_rect);
 
-  window->tile_match = meta_window_compute_tile_match (window, mode, monitor_number);
+  window->tile_match = meta_window_compute_tile_match (window, mode, monitor_number, FALSE);
 
   /* Track the previous mode */
   window->previous_tile_mode = window->tile_mode;
@@ -6426,6 +6428,7 @@ meta_window_get_tile_area_for_mode (MetaWindow    *window,
                                     MetaTileMode   mode,
                                     MetaTileMode   previous_mode,
                                     guint          monitor_number,
+                                    gboolean       consider_edges,
                                     MetaRectangle *tile_area)
 {
   g_return_if_fail (mode != META_TILE_NONE);
@@ -6434,6 +6437,7 @@ meta_window_get_tile_area_for_mode (MetaWindow    *window,
                                             mode,
                                             previous_mode,
                                             monitor_number,
+                                            consider_edges,
                                             tile_area);
 }
 
@@ -7542,7 +7546,8 @@ meta_window_get_tile_match (MetaWindow *window)
 MetaWindow *
 meta_window_compute_tile_match (MetaWindow   *window,
                                 MetaTileMode  current_mode,
-                                gint          target_monitor)
+                                gint          target_monitor,
+                                gboolean      consider_edges)
 {
   MetaWindow *match;
   MetaStack *stack;
@@ -7578,6 +7583,9 @@ meta_window_compute_tile_match (MetaWindow   *window,
     {
       MetaWindow *above, *bottommost, *topmost;
       MetaRectangle above_rect, bottommost_rect, topmost_rect;
+      gint threshold;
+
+      threshold = meta_prefs_get_drag_threshold ();
 
       if (meta_stack_windows_cmp (window->screen->stack, match, window) > 0)
         {
@@ -7611,6 +7619,15 @@ meta_window_compute_tile_match (MetaWindow   *window,
               meta_rectangle_overlap (&above_rect, &topmost_rect))
             return NULL;
         }
+
+      /* If we're not ignoring the edges (i.e. the window effectively resized or
+       * changed workspaces) then check if windows really match.
+       */
+      if (consider_edges &&
+          window->tile_match != match &&
+          ABS (topmost_rect.x - bottommost_rect.x - bottommost_rect.width) > threshold &&
+          ABS (bottommost_rect.x - topmost_rect.x - topmost_rect.width)  > threshold)
+        return NULL;
     }
 
   return match;

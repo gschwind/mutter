@@ -667,6 +667,7 @@ void meta_window_get_tile_area_for_mode        (MetaWindow    *window,
                                                 MetaTileMode   mode,
                                                 MetaTileMode   previous_mode,
                                                 guint          monitor_number,
+                                                gboolean       consider_edges,
                                                 MetaRectangle *tile_area);
 
 
@@ -711,7 +712,8 @@ gboolean meta_window_can_tile_side_by_side   (MetaWindow *window);
 
 MetaWindow* meta_window_compute_tile_match (MetaWindow   *window,
                                             MetaTileMode  current_mode,
-                                            gint          target_monitor);
+                                            gint          target_monitor,
+                                            gboolean      consider_edges);
 
 gboolean meta_window_updates_are_frozen (MetaWindow *window);
 

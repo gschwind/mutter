@@ -947,6 +947,7 @@ constrain_maximization (MetaWindow         *window,
                                           META_TILE_MAXIMIZED,
                                           window->tile_mode,
                                           window->monitor->number,
+                                          FALSE,
                                           &target_size);
     }
   else if (META_WINDOW_MAXIMIZED (window))
@@ -1038,6 +1039,7 @@ constrain_tiling (MetaWindow         *window,
                                       window->tile_mode,
                                       window->tile_mode,
                                       window->tile_monitor_number,
+                                      TRUE,
                                       &target_size);
 
   /* Check min size constraints; max size constraints are ignored as for

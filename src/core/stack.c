@@ -271,7 +271,8 @@ meta_stack_update_window_tile_matches (MetaStack     *stack,
 
       window->tile_match = meta_window_compute_tile_match (window,
                                                            window->tile_mode,
-                                                           window->monitor->number);
+                                                           window->monitor->number,
+                                                           TRUE);
       tmp = tmp->next;
     }
 
