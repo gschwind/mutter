@@ -3262,6 +3262,12 @@ meta_window_unmake_fullscreen (MetaWindow  *window)
     }
 }
 
+void
+meta_window_make_tiled (MetaWindow  *window, MetaRectangle *rect)
+{
+
+}
+
 static void
 meta_window_clear_fullscreen_monitors (MetaWindow *window)
 {
