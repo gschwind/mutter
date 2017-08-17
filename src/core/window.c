@@ -2697,6 +2697,49 @@ meta_window_maximize_internal (MetaWindow        *window,
 }
 
 void
+meta_window_make_tiled_internal (MetaWindow        *window,
+                               MetaMaximizeFlags  directions,
+                               MetaRectangle     *saved_rect)
+{
+  /* At least one of the two directions ought to be set */
+  gboolean maximize_horizontally, maximize_vertically;
+  maximize_horizontally = directions & META_MAXIMIZE_HORIZONTAL;
+  maximize_vertically   = directions & META_MAXIMIZE_VERTICAL;
+  g_assert (maximize_horizontally || maximize_vertically);
+
+  meta_topic (META_DEBUG_WINDOW_OPS,
+              "Tile %s%s\n",
+              window->desc,
+              maximize_horizontally && maximize_vertically ? "" :
+                maximize_horizontally ? " horizontally" :
+                  maximize_vertically ? " vertically" : "BUGGGGG");
+
+  if (saved_rect != NULL)
+    window->saved_rect = *saved_rect;
+  else
+    meta_window_save_rect (window);
+
+  if (maximize_horizontally && maximize_vertically)
+    window->saved_maximize = TRUE;
+
+  window->maximized_horizontally =
+    window->maximized_horizontally || maximize_horizontally;
+  window->maximized_vertically =
+    window->maximized_vertically   || maximize_vertically;
+
+  meta_window_recalc_features (window);
+  set_net_wm_state (window);
+
+//  if (window->monitor->in_fullscreen)
+//    meta_screen_queue_check_fullscreen (window->screen);
+
+  g_object_freeze_notify (G_OBJECT (window));
+  g_object_notify_by_pspec (G_OBJECT (window), obj_props[PROP_MAXIMIZED_HORIZONTALLY]);
+  g_object_notify_by_pspec (G_OBJECT (window), obj_props[PROP_MAXIMIZED_VERTICALLY]);
+  g_object_thaw_notify (G_OBJECT (window));
+}
+
+void
 meta_window_maximize (MetaWindow        *window,
                       MetaMaximizeFlags  directions)
 {
@@ -3265,7 +3308,78 @@ meta_window_unmake_fullscreen (MetaWindow  *window)
 void
 meta_window_make_tiled (MetaWindow  *window, MetaRectangle *rect)
 {
+	  MetaRectangle *saved_rect = NULL;
+	  gboolean maximize_horizontally, maximize_vertically;
 
+	  g_return_if_fail (!window->override_redirect);
+
+	  /* At least one of the two directions ought to be set */
+	  maximize_horizontally = TRUE;
+	  maximize_vertically   = TRUE;
+	  g_assert (maximize_horizontally || maximize_vertically);
+
+	  /* Only do something if the window isn't already maximized in the
+	   * given direction(s).
+	   */
+	  if ((maximize_horizontally && !window->maximized_horizontally) ||
+	      (maximize_vertically   && !window->maximized_vertically))
+	    {
+	      if (window->shaded && maximize_vertically)
+	        {
+	          /* Shading sucks anyway; I'm not adding a timestamp argument
+	           * to this function just for this niche usage & corner case.
+	           */
+	          guint32 timestamp =
+	            meta_display_get_current_time_roundtrip (window->display);
+	          meta_window_unshade (window, timestamp);
+	        }
+
+	      /* if the window hasn't been placed yet, we'll maximize it then
+	       */
+	      if (!window->placed)
+			{
+			  window->maximize_horizontally_after_placement =
+					window->maximize_horizontally_after_placement ||
+					maximize_horizontally;
+			  window->maximize_vertically_after_placement =
+					window->maximize_vertically_after_placement ||
+					maximize_vertically;
+			  return;
+			}
+
+	      if (window->tile_mode != META_TILE_NONE)
+	        {
+	          saved_rect = &window->saved_rect;
+
+	          //window->maximized_vertically = FALSE;
+
+	        }
+
+	      window->unconstrained_rect = *rect;
+	      window->tile_mode = META_TILE_CUSTOM_POSITION;
+
+	      meta_window_make_tiled_internal (window,
+	                                     META_MAXIMIZE_BOTH,
+	                                     saved_rect);
+
+	      MetaRectangle old_frame_rect, old_buffer_rect, new_rect;
+
+	      meta_window_get_frame_rect (window, &old_frame_rect);
+	      meta_window_get_buffer_rect (window, &old_buffer_rect);
+
+	      meta_window_move_resize_internal (window,
+	                                        (META_MOVE_RESIZE_MOVE_ACTION |
+	                                         META_MOVE_RESIZE_RESIZE_ACTION |
+	                                         META_MOVE_RESIZE_STATE_CHANGED |
+	                                         META_MOVE_RESIZE_DONT_SYNC_COMPOSITOR),
+	                                        NorthWestGravity,
+	                                        window->unconstrained_rect);
+	      meta_window_get_frame_rect (window, &new_rect);
+
+	      meta_compositor_size_change_window (window->display->compositor, window,
+	                                          META_SIZE_CHANGE_MAXIMIZE,
+	                                          &old_frame_rect, &old_buffer_rect);
+	    }
 }
 
 static void
@@ -6278,6 +6392,10 @@ meta_window_get_current_tile_area (MetaWindow    *window,
 
   if (window->tile_mode == META_TILE_RIGHT)
     tile_area->x += tile_area->width;
+
+  if (window->tile_mode == META_TILE_CUSTOM_POSITION)
+	  *tile_area = window->unconstrained_rect;
+
 }
 
 gboolean
