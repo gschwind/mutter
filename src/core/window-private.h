@@ -202,7 +202,7 @@ struct _MetaWindow
   /* The current or requested tile mode. If maximized_vertically is true,
    * this is the current mode. If not, it is the mode which will be
    * requested after the window grab is released */
-  guint tile_mode : 2;
+  guint tile_mode : 3;
   /* The last "full" maximized/unmaximized state. We need to keep track of
    * that to toggle between normal/tiled or maximized/tiled states. */
   guint saved_maximize : 1;
@@ -552,6 +552,10 @@ struct _MetaWindowClass
 #define META_WINDOW_TILED_SIDE_BY_SIDE(w)      ((w)->maximized_vertically && \
                                                 !(w)->maximized_horizontally && \
                                                  (w)->tile_mode != META_TILE_NONE)
+#define META_WINDOW_TILED_WITH_CUSTOM_POSITION(w)   ((w)->maximized_vertically && \
+                                                     (w)->maximized_horizontally && \
+                                                     (w)->tile_mode == META_TILE_WITH_CUSTOM_POSITION)
+
 #define META_WINDOW_TILED_LEFT(w)     (META_WINDOW_TILED_SIDE_BY_SIDE(w) && \
                                        (w)->tile_mode == META_TILE_LEFT)
 #define META_WINDOW_TILED_RIGHT(w)    (META_WINDOW_TILED_SIDE_BY_SIDE(w) && \
@@ -583,6 +587,8 @@ void        meta_window_tile               (MetaWindow        *window);
 void        meta_window_maximize_internal  (MetaWindow        *window,
                                             MetaMaximizeFlags  directions,
                                             MetaRectangle     *saved_rect);
+void        meta_window_make_tiled_with_custom_position_internal (MetaWindow        *window,
+                                                                  MetaRectangle     *saved_rect);
 
 void        meta_window_make_fullscreen_internal (MetaWindow    *window);
 void        meta_window_update_fullscreen_monitors (MetaWindow         *window,
