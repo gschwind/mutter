@@ -2697,6 +2697,36 @@ meta_window_maximize_internal (MetaWindow        *window,
 }
 
 void
+meta_window_make_tiled_with_custom_position_internal (MetaWindow        *window,
+                                                      MetaRectangle     *saved_rect)
+{
+
+  meta_topic (META_DEBUG_WINDOW_OPS,
+              "Tile %s\n",
+              window->desc);
+
+  if (saved_rect != NULL)
+    window->saved_rect = *saved_rect;
+  else
+    meta_window_save_rect (window);
+
+  window->saved_maximize = TRUE;
+
+  window->maximized_horizontally = TRUE;
+  window->maximized_vertically = TRUE;
+
+  meta_window_recalc_features (window);
+  set_net_wm_state (window);
+
+  //meta_stack_update_layer(window->screen->stack, window);
+
+  g_object_freeze_notify (G_OBJECT (window));
+  g_object_notify_by_pspec (G_OBJECT (window), obj_props[PROP_MAXIMIZED_HORIZONTALLY]);
+  g_object_notify_by_pspec (G_OBJECT (window), obj_props[PROP_MAXIMIZED_VERTICALLY]);
+  g_object_thaw_notify (G_OBJECT (window));
+}
+
+void
 meta_window_maximize (MetaWindow        *window,
                       MetaMaximizeFlags  directions)
 {
@@ -3260,6 +3290,67 @@ meta_window_unmake_fullscreen (MetaWindow  *window)
 
       g_object_notify_by_pspec (G_OBJECT (window), obj_props[PROP_FULLSCREEN]);
     }
+}
+
+void
+meta_window_make_tiled_with_custom_position (MetaWindow  *window, MetaRectangle *rect)
+{
+	  MetaRectangle *saved_rect = NULL;
+
+	  g_return_if_fail (!window->override_redirect);
+
+	  /* Only do something if the window isn't already maximized in the
+	   * given direction(s).
+	   */
+	  if ((!window->maximized_horizontally) ||
+	      (!window->maximized_vertically))
+	    {
+	      if (window->shaded)
+	        {
+	          /* Shading sucks anyway; I'm not adding a timestamp argument
+	           * to this function just for this niche usage & corner case.
+	           */
+	          guint32 timestamp =
+	            meta_display_get_current_time_roundtrip (window->display);
+	          meta_window_unshade (window, timestamp);
+	        }
+
+	      /* if the window hasn't been placed yet, we'll maximize it then
+	       */
+	      if (!window->placed)
+			{
+			  window->maximize_horizontally_after_placement = TRUE;
+			  window->maximize_vertically_after_placement = TRUE;
+			  return;
+			}
+
+	      if (window->tile_mode != META_TILE_NONE)
+	        {
+	          saved_rect = &window->saved_rect;
+	        }
+
+	      window->unconstrained_rect = *rect;
+	      window->tile_mode = META_TILE_WITH_CUSTOM_POSITION;
+
+	      meta_window_make_tiled_with_custom_position_internal (window,
+	                                     saved_rect);
+
+	      MetaRectangle old_frame_rect, old_buffer_rect;
+
+	      meta_window_get_frame_rect (window, &old_frame_rect);
+	      meta_window_get_buffer_rect (window, &old_buffer_rect);
+
+	      meta_compositor_size_change_window (window->display->compositor, window,
+	                                          META_SIZE_CHANGE_MAXIMIZE,
+	                                          &old_frame_rect, &old_buffer_rect);
+
+	      meta_window_move_resize_internal (window,
+	                                        (META_MOVE_RESIZE_MOVE_ACTION |
+	                                         META_MOVE_RESIZE_RESIZE_ACTION |
+	                                         META_MOVE_RESIZE_STATE_CHANGED),
+	                                        NorthWestGravity,
+	                                        window->unconstrained_rect);
+	    }
 }
 
 static void
@@ -6272,6 +6363,10 @@ meta_window_get_current_tile_area (MetaWindow    *window,
 
   if (window->tile_mode == META_TILE_RIGHT)
     tile_area->x += tile_area->width;
+
+  if (window->tile_mode == META_TILE_WITH_CUSTOM_POSITION)
+	  *tile_area = window->unconstrained_rect;
+
 }
 
 gboolean
