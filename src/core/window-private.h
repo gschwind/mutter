@@ -202,7 +202,7 @@ struct _MetaWindow
   /* The current or requested tile mode. If maximized_vertically is true,
    * this is the current mode. If not, it is the mode which will be
    * requested after the window grab is released */
-  guint tile_mode : 2;
+  guint tile_mode : 3;
   /* The last "full" maximized/unmaximized state. We need to keep track of
    * that to toggle between normal/tiled or maximized/tiled states. */
   guint saved_maximize : 1;
