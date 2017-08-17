@@ -129,6 +129,13 @@ typedef struct _MetaPlacementRule
   int height;
 } MetaPlacementRule;
 
+typedef enum
+{
+  META_EDGE_CONSTRAINT_NONE    = 0,
+  META_EDGE_CONSTRAINT_WINDOW  = 1,
+  META_EDGE_CONSTRAINT_MONITOR = 2,
+} MetaEdgeConstraint;
+
 struct _MetaWindow
 {
   GObject parent_instance;
@@ -207,6 +214,12 @@ struct _MetaWindow
    * that to toggle between normal/tiled or maximized/tiled states. */
   guint saved_maximize : 1;
   int tile_monitor_number;
+
+  /* 0 - top
+   * 1 - right
+   * 2 - bottom
+   * 3 - left */
+  MetaEdgeConstraint edge_constraints[4];
 
   /* Keep track of the previous tile mode so when changing between left and
    * right tiles we can resize the window with the complementary width */
