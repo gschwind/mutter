@@ -100,6 +100,7 @@ typedef enum
   PRIORITY_ENTIRELY_VISIBLE_ON_WORKAREA = 1,
   PRIORITY_SIZE_HINTS_INCREMENTS = 1,
   PRIORITY_MAXIMIZATION = 2,
+  PRIORITY_PERCENTAGE = 2,
   PRIORITY_TILING = 2,
   PRIORITY_FULLSCREEN = 2,
   PRIORITY_SIZE_HINTS_LIMITS = 3,
@@ -157,6 +158,10 @@ static gboolean constrain_modal_dialog       (MetaWindow         *window,
                                               ConstraintPriority  priority,
                                               gboolean            check_only);
 static gboolean constrain_maximization       (MetaWindow         *window,
+                                              ConstraintInfo     *info,
+                                              ConstraintPriority  priority,
+                                              gboolean            check_only);
+static gboolean constrain_percentage         (MetaWindow         *window,
                                               ConstraintInfo     *info,
                                               ConstraintPriority  priority,
                                               gboolean            check_only);
@@ -222,6 +227,7 @@ static const Constraint all_constraints[] = {
   {constrain_custom_rule,        "constrain_custom_rule"},
   {constrain_modal_dialog,       "constrain_modal_dialog"},
   {constrain_maximization,       "constrain_maximization"},
+  {constrain_percentage,         "constrain_percentage"},
   {constrain_tiling,             "constrain_tiling"},
   {constrain_fullscreen,         "constrain_fullscreen"},
   {constrain_size_increments,    "constrain_size_increments"},
@@ -1014,10 +1020,10 @@ constrain_maximization (MetaWindow         *window,
 }
 
 static gboolean
-constrain_tiling (MetaWindow         *window,
-                  ConstraintInfo     *info,
-                  ConstraintPriority  priority,
-                  gboolean            check_only)
+constrain_percentage (MetaWindow         *window,
+                      ConstraintInfo     *info,
+                      ConstraintPriority  priority,
+                      gboolean            check_only)
 {
   MetaRectangle target_size;
   MetaRectangle min_size, max_size;
@@ -1025,22 +1031,17 @@ constrain_tiling (MetaWindow         *window,
   gboolean horiz_equal, vert_equal;
   gboolean constraint_already_satisfied;
 
-  if (priority > PRIORITY_TILING)
+  if (priority > PRIORITY_PERCENTAGE)
     return TRUE;
 
   /* Determine whether constraint applies; exit if it doesn't */
   if (!META_WINDOW_TILED_SIDE_BY_SIDE (window))
     return TRUE;
 
-  /* Calculate target_size - as the tile previews need this as well, we
-   * use an external function for the actual calculation
-   */
-  meta_window_get_tile_area_for_mode (window,
-                                      window->tile_mode,
-                                      window->tile_mode,
-                                      window->tile_monitor_number,
-                                      TRUE,
-                                      &target_size);
+  /* The percentage constraint only enforces the sizes of the window. The tiling
+   * constraint is the one that enforces the positioning. */
+  target_size.width = info->work_area_monitor.width * window->hpercentage;
+  target_size.height = info->work_area_monitor.height * window->vpercentage;
 
   /* Check min size constraints; max size constraints are ignored as for
    * maximized windows.
@@ -1052,21 +1053,18 @@ constrain_tiling (MetaWindow         *window,
     return TRUE;
 
   /* Determine whether constraint is already satisfied; exit if it is */
-  horiz_equal = target_size.x      == info->current.x &&
-                target_size.width  == info->current.width;
-  vert_equal  = target_size.y      == info->current.y &&
-                target_size.height == info->current.height;
+  horiz_equal = target_size.width  == info->current.width;
+  vert_equal  = target_size.height == info->current.height;
   constraint_already_satisfied = horiz_equal && vert_equal;
   if (check_only || constraint_already_satisfied)
     return constraint_already_satisfied;
 
   /*** Enforce constraint ***/
-  info->current.y      = target_size.y;
+  info->current.width  = target_size.width;
   info->current.height = target_size.height;
 
   return TRUE;
 }
-
 
 static gboolean
 constrain_fullscreen (MetaWindow         *window,
@@ -1100,6 +1098,45 @@ constrain_fullscreen (MetaWindow         *window,
 
   /*** Enforce constraint ***/
   info->current = monitor;
+  return TRUE;
+}
+
+static gboolean
+constrain_tiling (MetaWindow         *window,
+                  ConstraintInfo     *info,
+                  ConstraintPriority  priority,
+                  gboolean            check_only)
+{
+  MetaRectangle target_size;
+  gboolean horiz_equal, vert_equal;
+  gboolean constraint_already_satisfied;
+
+  if (priority > PRIORITY_TILING)
+    return TRUE;
+
+  /* Determine whether constraint applies; exit if it doesn't */
+  if (!META_WINDOW_TILED_SIDE_BY_SIDE (window))
+    return TRUE;
+
+  /* The tiling constraint only enforces the position of the window. The percentage
+   * constraint is the one that enforces the sizing. */
+  target_size.x = info->work_area_monitor.x;
+  target_size.y = info->work_area_monitor.y;
+
+  if (window->tile_mode == META_TILE_RIGHT)
+    target_size.x += info->work_area_monitor.width - info->current.width;
+
+  /* Determine whether constraint is already satisfied; exit if it is */
+  horiz_equal = target_size.x == info->current.x;
+  vert_equal  = target_size.y == info->current.y;
+  constraint_already_satisfied = horiz_equal && vert_equal;
+  if (check_only || constraint_already_satisfied)
+    return constraint_already_satisfied;
+
+  /*** Enforce constraint ***/
+  info->current.x = target_size.x;
+  info->current.y = target_size.y;
+
   return TRUE;
 }
 

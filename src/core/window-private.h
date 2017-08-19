@@ -213,6 +213,9 @@ struct _MetaWindow
   guint previous_tile_mode : 2;
   guint preview_tile_mode : 2;
 
+  gdouble hpercentage;
+  gdouble vpercentage;
+
   int preferred_output_winsys_id;
 
   /* Whether we're shaded */

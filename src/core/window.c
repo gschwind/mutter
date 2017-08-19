@@ -3723,6 +3723,18 @@ meta_window_update_monitor (MetaWindow *window,
     }
 }
 
+static void
+meta_window_update_percentage (MetaWindow    *window,
+                               MetaRectangle  rect)
+{
+  MetaRectangle workarea;
+
+  meta_window_get_work_area_current_monitor (window, &workarea);
+
+  window->hpercentage = rect.width / (gdouble) workarea.width;
+  window->vpercentage = rect.height / (gdouble) workarea.height;
+}
+
 void
 meta_window_move_resize_internal (MetaWindow          *window,
                                   MetaMoveResizeFlags  flags,
@@ -3771,6 +3783,8 @@ meta_window_move_resize_internal (MetaWindow          *window,
     {
       /* We're both moving and resizing. Just use the passed in rect. */
       unconstrained_rect = frame_rect;
+
+      meta_window_update_percentage (window, unconstrained_rect);
     }
   else if ((flags & META_MOVE_RESIZE_RESIZE_ACTION))
     {
@@ -3782,6 +3796,8 @@ meta_window_move_resize_internal (MetaWindow          *window,
                                           gravity,
                                           frame_rect.width,
                                           frame_rect.height);
+
+      meta_window_update_percentage (window, unconstrained_rect);
     }
   else if ((flags & META_MOVE_RESIZE_MOVE_ACTION))
     {
