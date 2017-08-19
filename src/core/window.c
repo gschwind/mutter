@@ -3394,7 +3394,7 @@ meta_window_make_tiled (MetaWindow  *window, MetaRectangle *rect)
 	      meta_window_get_frame_rect (window, &new_rect);
 
 	      meta_compositor_size_change_window (window->display->compositor, window,
-	                                          META_SIZE_CHANGE_MAXIMIZE,
+	                                          META_SIZE_CHANGE_TILE,
 	                                          &old_frame_rect, &old_buffer_rect);
 	    }
 }

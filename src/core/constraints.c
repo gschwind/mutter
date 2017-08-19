@@ -1245,6 +1245,7 @@ constrain_aspect_ratio (MetaWindow         *window,
   if (constraints_are_inconsistent ||
       META_WINDOW_MAXIMIZED (window) || window->fullscreen ||
       META_WINDOW_TILED_SIDE_BY_SIDE (window) ||
+      META_WINDOW_TILED_CUSTOM_POSITION (window) ||
       info->action_type == ACTION_MOVE)
     return TRUE;
 
