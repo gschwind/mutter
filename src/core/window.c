@@ -2732,6 +2732,7 @@ meta_window_make_tiled_internal (MetaWindow        *window,
 
 //  if (window->monitor->in_fullscreen)
 //    meta_screen_queue_check_fullscreen (window->screen);
+  meta_stack_update_layer(window->screen->stack, window);
 
   g_object_freeze_notify (G_OBJECT (window));
   g_object_notify_by_pspec (G_OBJECT (window), obj_props[PROP_MAXIMIZED_HORIZONTALLY]);
@@ -3362,24 +3363,21 @@ meta_window_make_tiled (MetaWindow  *window, MetaRectangle *rect)
 	                                     META_MAXIMIZE_BOTH,
 	                                     saved_rect);
 
-	      MetaRectangle old_frame_rect, old_buffer_rect, new_rect;
+	      MetaRectangle old_frame_rect, old_buffer_rect;
 
 	      meta_window_get_frame_rect (window, &old_frame_rect);
 	      meta_window_get_buffer_rect (window, &old_buffer_rect);
 
-	      meta_window_move_resize_internal (window,
-	                                        (META_MOVE_RESIZE_MOVE_ACTION |
-	                                         META_MOVE_RESIZE_RESIZE_ACTION |
-	                                         META_MOVE_RESIZE_STATE_CHANGED |
-	                                         META_MOVE_RESIZE_DONT_SYNC_COMPOSITOR),
-	                                        NorthWestGravity,
-	                                        window->unconstrained_rect);
-	      meta_window_get_frame_rect (window, &new_rect);
-
 	      meta_compositor_size_change_window (window->display->compositor, window,
 	                                          META_SIZE_CHANGE_MAXIMIZE,
 	                                          &old_frame_rect, &old_buffer_rect);
-	    }
+
+	      meta_window_move_resize_internal (window,
+	                                        (META_MOVE_RESIZE_MOVE_ACTION |
+	                                         META_MOVE_RESIZE_RESIZE_ACTION |
+	                                         META_MOVE_RESIZE_STATE_CHANGED),
+	                                        NorthWestGravity,
+	                                        window->unconstrained_rect);	    }
 }
 
 static void
