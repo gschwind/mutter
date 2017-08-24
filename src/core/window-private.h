@@ -552,9 +552,9 @@ struct _MetaWindowClass
 #define META_WINDOW_TILED_SIDE_BY_SIDE(w)      ((w)->maximized_vertically && \
                                                 !(w)->maximized_horizontally && \
                                                  (w)->tile_mode != META_TILE_NONE)
-#define META_WINDOW_TILED_CUSTOM_POSITION(w)   ((w)->maximized_vertically && \
-                                                (w)->maximized_horizontally && \
-                                                (w)->tile_mode == META_TILE_CUSTOM_POSITION)
+#define META_WINDOW_TILED_WITH_CUSTOM_POSITION(w)   ((w)->maximized_vertically && \
+                                                     (w)->maximized_horizontally && \
+                                                     (w)->tile_mode == META_TILE_WITH_CUSTOM_POSITION)
 
 #define META_WINDOW_TILED_LEFT(w)     (META_WINDOW_TILED_SIDE_BY_SIDE(w) && \
                                        (w)->tile_mode == META_TILE_LEFT)
@@ -587,9 +587,8 @@ void        meta_window_tile               (MetaWindow        *window);
 void        meta_window_maximize_internal  (MetaWindow        *window,
                                             MetaMaximizeFlags  directions,
                                             MetaRectangle     *saved_rect);
-void        meta_window_make_tiled_internal  (MetaWindow        *window,
-                                            MetaMaximizeFlags  directions,
-                                            MetaRectangle     *saved_rect);
+void        meta_window_make_tiled_with_custom_position_internal (MetaWindow        *window,
+                                                                  MetaRectangle     *saved_rect);
 
 void        meta_window_make_fullscreen_internal (MetaWindow    *window);
 void        meta_window_update_fullscreen_monitors (MetaWindow         *window,
