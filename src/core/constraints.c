@@ -1240,7 +1240,7 @@ constrain_aspect_ratio (MetaWindow         *window,
   gboolean constraints_are_inconsistent, constraint_already_satisfied;
   int fudge, new_width, new_height;
   double best_width, best_height;
-  double alt_width, alt_height;
+  double max_width, max_height;
   MetaRectangle *start_rect;
   MetaRectangle client_rect;
 
@@ -1328,26 +1328,18 @@ constrain_aspect_ratio (MetaWindow         *window,
     case SouthEastGravity:
     case StaticGravity:
     default:
-      /* Find what width would correspond to new_height, and what height would
-       * correspond to new_width */
-      alt_width  = CLAMP (new_width,  new_height * minr, new_height * maxr);
-      alt_height = CLAMP (new_height, new_width / maxr,  new_width / minr);
 
-      /* The line connecting the points (alt_width, new_height) and
-       * (new_width, alt_height) provide a range of
-       * valid-for-the-aspect-ratio-constraint sizes.  We want the
-       * size in that range closest to the value requested, i.e. the
-       * point on the line which is closest to the point (new_width,
-       * new_height)
-       */
-      meta_rectangle_find_linepoint_closest_to_point (alt_width, new_height,
-                                                      new_width, alt_height,
-                                                      new_width, new_height,
-                                                      &best_width, &best_height);
-
-      /* Yeah, I suck for doing implicit rounding -- sue me */
-      new_width  = best_width;
-      new_height = best_height;
+      /* ensure ratio constrain and new size inside client_rect */
+      max_width = new_height * maxr;
+      max_height = new_width / minr;
+      if (max_height < new_height)
+        {
+    	  new_height = max_height;
+        }
+      else if (max_width < new_width)
+        {
+    	  new_width = max_width;
+        }
 
       break;
     }
